@@ -28,11 +28,11 @@ const (
 )
 
 //for removing punctuation
-var REGEX_REMOVE_PUNCTUATION = regexp.MustCompile(fmt.Sprintf("[%s]", regexp.QuoteMeta(`!"//$%&'()*+,-./:;<=>?@[\]^_{|}~`+"`")))
+var RegexRemovePunctuation = regexp.MustCompile(fmt.Sprintf("[%s]", regexp.QuoteMeta(`!"//$%&'()*+,-./:;<=>?@[\]^_{|}~`+"`")))
 
-var PUNC_LIST = []string{".", "!", "?", ",", ";", ":", "-", "'", "\"", "!!", "!!!", "??", "???", "?!?", "!?!", "?!?!", "!?!?"}
+var Punctuations = []string{".", "!", "?", ",", ";", ":", "-", "'", "\"", "!!", "!!!", "??", "???", "?!?", "!?!", "?!?!", "!?!?"}
 
-var NEGATE = []string{"aint", "arent", "cannot", "cant", "couldnt", "darent", "didnt", "doesnt",
+var Negations = []string{"aint", "arent", "cannot", "cant", "couldnt", "darent", "didnt", "doesnt",
 	"ain't", "aren't", "can't", "couldn't", "daren't", "didn't", "doesn't",
 	"dont", "hadnt", "hasnt", "havent", "isnt", "mightnt", "mustnt", "neither",
 	"don't", "hadn't", "hasn't", "haven't", "isn't", "mightn't", "mustn't",
@@ -43,7 +43,7 @@ var NEGATE = []string{"aint", "arent", "cannot", "cant", "couldnt", "darent", "d
 
 // booster/dampener 'intensifiers' or 'degree adverbs'
 // http://en.wiktionary.org/wiki/Category:English_degree_adverbs
-var BOOSTER_DICT = map[string]float64{"absolutely": B_INCR, "amazingly": B_INCR, "awfully": B_INCR, "completely": B_INCR, "considerably": B_INCR,
+var BoosterMap = map[string]float64{"absolutely": B_INCR, "amazingly": B_INCR, "awfully": B_INCR, "completely": B_INCR, "considerably": B_INCR,
 	"decidedly": B_INCR, "deeply": B_INCR, "effing": B_INCR, "enormously": B_INCR,
 	"entirely": B_INCR, "especially": B_INCR, "exceptionally": B_INCR, "extremely": B_INCR,
 	"fabulously": B_INCR, "flipping": B_INCR, "flippin": B_INCR,
@@ -62,14 +62,14 @@ var BOOSTER_DICT = map[string]float64{"absolutely": B_INCR, "amazingly": B_INCR,
 	"sort of": B_DECR, "sorta": B_DECR, "sortof": B_DECR, "sort-of": B_DECR}
 
 // check for sentiment laden idioms that do not contain lexicon words (future work, not yet implemented)
-var SENTIMENT_LADEN_IDIOMS = map[string]int{"cut the mustard": 2, "hand to mouth": -2,
+var SentimentLadenIdioms = map[string]int{"cut the mustard": 2, "hand to mouth": -2,
 	"back handed": -2, "blow smoke": -2, "blowing smoke": -2,
 	"upper hand": 1, "break a leg": 2,
 	"cooking with gas": 2, "in the black": 2, "in the red": -2,
 	"on the ball": 2, "under the weather": -2}
 
 // check for special case idioms containing lexicon words
-var SPECIAL_CASE_IDIOMS = map[string]float64{"the shit": 3, "the bomb": 3, "bad ass": 1.5, "yeah right": -2,
+var SpecialCaseIdioms = map[string]float64{"the shit": 3, "the bomb": 3, "bad ass": 1.5, "yeah right": -2,
 	"kiss of death": -1.5}
 
 
@@ -82,7 +82,7 @@ func negated(inputWords []string) bool {
 	}
 
 	for i, word := range inputWordsLowercased {
-		for _, negWord := range NEGATE {
+		for _, negWord := range Negations {
 			if negWord == word {
 				return true
 			}
@@ -146,7 +146,7 @@ func scalarIncDec(word string, valence float64, isCapDiff bool) float64 {
 
 	wordLower := strings.ToLower(word)
 
-	if value, ok := BOOSTER_DICT[wordLower]; ok {
+	if value, ok := BoosterMap[wordLower]; ok {
 		scalar = value
 		if valence < 0 {
 			scalar *= -1
@@ -170,7 +170,7 @@ type SentiText struct {
 	IsCapDiff         bool
 }
 
-func (s *SentiText) _init(text string) {
+func (s *SentiText) Init(text string) {
 	//TODO check if text is utf-8 encoded, encode if needed (implicit in Golang ?)
 	s.Text = text
 	s.WordsAndEmoticons = s._wordsAndEmoticons()
@@ -185,7 +185,7 @@ func (s *SentiText) _init(text string) {
 //',cat': 'cat',
 //}
 func (s *SentiText) _wordsPlusPunc() map[string]string {
-	noPuncText := REGEX_REMOVE_PUNCTUATION.ReplaceAllString(string(s.Text), "")
+	noPuncText := RegexRemovePunctuation.ReplaceAllString(string(s.Text), "")
 
 	//removes punctuation (but loses emoticons & contractions)
 	wordsOnly := strings.Fields(noPuncText)
@@ -203,11 +203,11 @@ func (s *SentiText) _wordsPlusPunc() map[string]string {
 	puncBefore := make(map[string]string)
 	puncAfter := make(map[string]string)
 
-	for _, p := range cartesianProduct(PUNC_LIST, wordsOnly) {
+	for _, p := range cartesianProduct(Punctuations, wordsOnly) {
 		puncBefore[strings.Join(p, "")] = p[1]
 	}
 
-	for _, p := range cartesianProduct(wordsOnly, PUNC_LIST) {
+	for _, p := range cartesianProduct(wordsOnly, Punctuations) {
 		puncAfter[strings.Join(p, "")] = p[0]
 	}
 
@@ -263,6 +263,7 @@ type SentimentIntensityAnalyzer struct {
 	EmojiLexiconMap map[string]string
 }
 
+// Initialize sentiment analyzer with lexicons
 func (sia *SentimentIntensityAnalyzer) Init() error {
 	//TODO path abs paths
 
@@ -285,7 +286,7 @@ func (sia *SentimentIntensityAnalyzer) Init() error {
 	return nil
 }
 
-//Convert lexicon file to a dictionary
+//Convert lexicon file to map
 func (sia *SentimentIntensityAnalyzer) makeLexiconMap(lexicon string) map[string]float64 {
 	lexiconDict := make(map[string]float64)
 
@@ -305,7 +306,7 @@ func (sia *SentimentIntensityAnalyzer) makeLexiconMap(lexicon string) map[string
 	return lexiconDict
 }
 
-// Convert emoji lexicon file to a dictionary
+// Convert emoji lexicon file to map
 func (sia *SentimentIntensityAnalyzer) makeEmojiLexiconMap(emojiLexicon string) map[string]string {
 	emojiLexiconDict := make(map[string]string)
 
@@ -324,7 +325,7 @@ func (sia *SentimentIntensityAnalyzer) makeEmojiLexiconMap(emojiLexicon string) 
 
 // Return a float for sentiment strength based on the input text.
 // Positive values are positive valence, negative value are negative valence.
-func (sia *SentimentIntensityAnalyzer) polarityScores(text string) map[string]float64 {
+func (sia *SentimentIntensityAnalyzer) PolarityScores(text string) map[string]float64 {
 	var textNoEmojiList []string
 
 	textTokensList := strings.Fields(text)
@@ -338,7 +339,7 @@ func (sia *SentimentIntensityAnalyzer) polarityScores(text string) map[string]fl
 	text = strings.Join(textNoEmojiList, " ")
 
 	sentiText := SentiText{}
-	sentiText._init(text)
+	sentiText.Init(text)
 
 	var sentiments []float64
 
@@ -347,7 +348,7 @@ func (sia *SentimentIntensityAnalyzer) polarityScores(text string) map[string]fl
 		valence := 0.0
 
 		// check for vader_lexicon words that may be used as modifiers or negations
-		if _, ok := BOOSTER_DICT[strings.ToLower(item)]; ok {
+		if _, ok := BoosterMap[strings.ToLower(item)]; ok {
 			sentiments = append(sentiments, valence)
 			continue
 		}
@@ -389,8 +390,6 @@ func (sia *SentimentIntensityAnalyzer) sentimentValence(valence float64, sentiTe
 			//// (excluding the ones that immediately preceed the item) based
 			//// on their distance from the current item.
 
-			//TODO check if condition is written properly
-			//TODO ERROR:out of range
 			if i <= start_i {
 				continue
 			}
@@ -447,7 +446,6 @@ func (sia *SentimentIntensityAnalyzer) butCheck(wordsAndEmoticons []string, sent
 		if wl == "but" {
 			for si, sentiment := range sentiments {
 				if si < bi {
-					//TODO check pop method on python list
 					sentiments[si] = sentiment * 0.5
 				} else if si > bi {
 					sentiments[si] = sentiment * 1.5
@@ -479,7 +477,7 @@ func (sia *SentimentIntensityAnalyzer) specialIdiomsCheck(valence float64, words
 	sequences := []string{onezero, twoonezero, twoone, threetwoone, threetwo}
 
 	for _, seq := range sequences {
-		if value, ok := SPECIAL_CASE_IDIOMS[seq]; ok {
+		if value, ok := SpecialCaseIdioms[seq]; ok {
 			valence = value
 			break
 		}
@@ -487,23 +485,22 @@ func (sia *SentimentIntensityAnalyzer) specialIdiomsCheck(valence float64, words
 
 	if len(wordsAndEmoticonsLower)-1 > i {
 		zeroone := fmt.Sprintf("%s %s", wordsAndEmoticonsLower[i], wordsAndEmoticonsLower[i+1])
-		if value, ok := SPECIAL_CASE_IDIOMS[zeroone]; ok {
+		if value, ok := SpecialCaseIdioms[zeroone]; ok {
 			valence = value
 		}
 	}
 
 	if len(wordsAndEmoticonsLower)-1 > i+1 {
 		zeroonetwo := fmt.Sprintf("%s %s %s", wordsAndEmoticonsLower[i], wordsAndEmoticonsLower[i+1], wordsAndEmoticonsLower[i+2])
-		if value, ok := SPECIAL_CASE_IDIOMS[zeroonetwo]; ok {
+		if value, ok := SpecialCaseIdioms[zeroonetwo]; ok {
 			valence = value
 		}
 	}
 
 	// check for booster/dampener bi-grams such as 'sort of' or 'kind of'
-
 	ngrams := []string{threetwoone, threetwo, twoone}
 	for _, ngram := range ngrams {
-		if value, ok := BOOSTER_DICT[ngram]; ok {
+		if value, ok := BoosterMap[ngram]; ok {
 			valence = valence + value
 		}
 	}
@@ -519,6 +516,7 @@ func (sia *SentimentIntensityAnalyzer) sentimentLadenIdiomsCheck(valence float64
 	return 0.0
 }
 
+//check for negations
 func (sia *SentimentIntensityAnalyzer) negationCheck(valence float64, wordsAndEmoticons []string, start_i int, i int) float64 {
 	var wordsAndEmoticonsLower []string
 
@@ -664,7 +662,10 @@ func (sia *SentimentIntensityAnalyzer) scoreValence(sentiments []float64, text s
 func main() {
 	// --- Examples -------
 	sia := SentimentIntensityAnalyzer{}
-	sia.Init()
+	err := sia.Init()
+	if err != nil{
+		log.Fatal(err)
+	}
 
 	sentences := []string{"VADER is smart, handsome, and funny.", // positive sentence example
 		"VADER is smart, handsome, and funny!", // punctuation emphasis handled correctly (sentiment intensity adjusted)
@@ -699,7 +700,7 @@ func main() {
 	fmt.Printf("  -- sentiment laden initialisms and acronyms (for example: 'lol')\n\n")
 
 	for _, sentence := range sentences{
-		score := sia.polarityScores(sentence)
+		score := sia.PolarityScores(sentence)
 		fmt.Printf("%s : %+v\n", sentence, score)
 	}
 
@@ -736,7 +737,7 @@ func main() {
 	fmt.Printf("  -- special uses of 'least' as negation versus comparison\n\n")
 
 	for _, sentence := range tricky_sentences{
-		score := sia.polarityScores(sentence)
+		score := sia.PolarityScores(sentence)
 		fmt.Printf("%s : %+v\n", sentence, score)
 	}
 
