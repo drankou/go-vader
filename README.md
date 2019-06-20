@@ -25,7 +25,4 @@ fmt.Println(score)
 
 ````
 
-### TODO
-* utf8 emoji support
-
 

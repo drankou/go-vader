@@ -171,7 +171,6 @@ type SentiText struct {
 }
 
 func (s *SentiText) Init(text string) {
-	//TODO check utf-8 emoji
 	s.Text = text
 	s.WordsAndEmoticons = s._wordsAndEmoticons()
 	// doesn't separate words from
@@ -301,7 +300,7 @@ func (sia *SentimentIntensityAnalyzer) makeLexiconMap(lexicon string) map[string
 	lexiconDict := make(map[string]float64)
 
 	for _, line := range strings.Split(lexicon, "\n") {
-		line = strings.Replace(line, " ", "", -1)
+		line = strings.TrimSpace(line)
 		values := strings.Split(line, "\t")
 
 		word := values[0]
@@ -321,7 +320,7 @@ func (sia *SentimentIntensityAnalyzer) makeEmojiLexiconMap(emojiLexicon string) 
 	emojiLexiconDict := make(map[string]string)
 
 	for _, line := range strings.Split(emojiLexicon, "\n") {
-		line = strings.Replace(line, " ", "", -1)
+		line = strings.TrimSpace(line)
 		values := strings.Split(line, "\t")
 
 		word := values[0]
