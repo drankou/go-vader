@@ -1,17 +1,17 @@
-##GoVader. Sentiment analysis tool written in GoLang.
+# GoVader. Sentiment analysis tool written in GO (GoLang).
 
 "VADER (Valence Aware Dictionary and sEntiment Reasoner) is a lexicon and rule-based sentiment analysis tool that is specifically attuned to sentiments expressed in social media."
 
 Original python implementation of VADER (https://github.com/cjhutto/vaderSentiment).
 
-#Getting started
+# Getting started
 
-##Install:
+## Install:
 
 `go get github.com/drankou/go-vader`
 
 
-##Example of usage:
+## Example of usage:
 ````
 sia := SentimentIntensityAnalyzer{}
 err := sia.Init()
