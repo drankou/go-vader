@@ -20,8 +20,8 @@ const (
 	C_INCR   = 0.733
 	N_SCALAR = -0.74
 
-	lexicon_file       = "vader_lexicon.txt"
-	emoji_lexicon_file = "emoji_utf8_lexicon.txt"
+	lexicon_file       = "vader/vader_lexicon.txt"
+	emoji_lexicon_file = "vader/emoji_utf8_lexicon.txt"
 
 	alpha = 15			//constant for normalize
 	include_nt = true 	//flag to check "n't" in negated
@@ -171,7 +171,7 @@ type SentiText struct {
 }
 
 func (s *SentiText) Init(text string) {
-	//TODO check if text is utf-8 encoded, encode if needed (implicit in Golang ?)
+	//TODO check utf-8 emoji
 	s.Text = text
 	s.WordsAndEmoticons = s._wordsAndEmoticons()
 	// doesn't separate words from
@@ -213,7 +213,6 @@ func (s *SentiText) _wordsPlusPunc() map[string]string {
 
 	wordsPuncDict := puncBefore
 
-	//TODO check if it correct
 	for key, value := range puncAfter {
 		wordsPuncDict[key] = value
 	}
