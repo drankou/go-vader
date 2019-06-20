@@ -13,7 +13,7 @@ Original python implementation of VADER (https://github.com/cjhutto/vaderSentime
 
 ## Example of usage:
 ````
-sia := SentimentIntensityAnalyzer{}
+sia := vader.SentimentIntensityAnalyzer{}
 err := sia.Init()
 if err != nil {
     log.Fatal(err)
@@ -25,5 +25,7 @@ fmt.Println(score)
 
 ````
 
+### TODO
+* utf8 emoji support
 
 
