@@ -24,8 +24,8 @@ const (
 	lexicon_file       = "/src/github.com/drankou/go-vader/vader/vader_lexicon.txt"
 	emoji_lexicon_file = "/src/github.com/drankou/go-vader/vader/emoji_utf8_lexicon.txt"
 
-	alpha = 15			//constant for normalize
-	include_nt = true 	//flag to check "n't" in negated
+	alpha      = 15   //constant for normalize
+	include_nt = true //flag to check "n't" in negated
 )
 
 //for removing punctuation
@@ -73,7 +73,6 @@ var SentimentLadenIdioms = map[string]int{"cut the mustard": 2, "hand to mouth":
 var SpecialCaseIdioms = map[string]float64{"the shit": 3, "the bomb": 3, "bad ass": 1.5, "yeah right": -2,
 	"kiss of death": -1.5}
 
-
 // Determine if input contains negation words
 func negated(inputWords []string) bool {
 	var inputWordsLowercased []string
@@ -108,7 +107,7 @@ func negated(inputWords []string) bool {
 // Normalize the score to be between -1 and 1 using an alpha that
 // approximates the max expected value
 func normalize(score float64) float64 {
-	normalizedScore := score / math.Sqrt((score*score) + float64(alpha))
+	normalizedScore := score / math.Sqrt((score*score)+float64(alpha))
 
 	if normalizedScore < -1.0 {
 		return -1.0
@@ -278,7 +277,6 @@ func (sia *SentimentIntensityAnalyzer) Init(filenames ...string) error {
 		emojiLexiconFilename = gopath + emoji_lexicon_file
 	}
 
-	log.Println(lexiconFilename, emojiLexiconFilename)
 	// load lexicon file
 	lexicon, err := ioutil.ReadFile(lexiconFilename)
 	if err != nil {
@@ -435,12 +433,16 @@ func (sia *SentimentIntensityAnalyzer) sentimentValence(valence float64, sentiTe
 func (sia *SentimentIntensityAnalyzer) leastCheck(valence float64, wordsAndEmoticons []string, i int) float64 {
 	// check for negation case using "least"
 
-	if _, ok := sia.LexiconMap[strings.ToLower(wordsAndEmoticons[i-1])]; !ok && i > 1 && strings.ToLower(wordsAndEmoticons[i-1]) == "least" {
-		if strings.ToLower(wordsAndEmoticons[i-2]) != "at" && strings.ToLower(wordsAndEmoticons[i-2]) != "very" {
+	if i > 1 {
+		if _, ok := sia.LexiconMap[strings.ToLower(wordsAndEmoticons[i-1])]; !ok && strings.ToLower(wordsAndEmoticons[i-1]) == "least" {
+			if strings.ToLower(wordsAndEmoticons[i-2]) != "at" && strings.ToLower(wordsAndEmoticons[i-2]) != "very" {
+				valence = valence * N_SCALAR
+			}
+		}
+	} else if i > 0 {
+		if _, ok := sia.LexiconMap[strings.ToLower(wordsAndEmoticons[i-1])]; !ok && strings.ToLower(wordsAndEmoticons[i-1]) == "least" {
 			valence = valence * N_SCALAR
 		}
-	} else if _, ok := sia.LexiconMap[strings.ToLower(wordsAndEmoticons[i-1])]; !ok && i > 0 && strings.ToLower(wordsAndEmoticons[i-1]) == "least" {
-		valence = valence * N_SCALAR
 	}
 
 	return valence
