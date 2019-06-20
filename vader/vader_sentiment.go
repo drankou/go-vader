@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,8 +21,8 @@ const (
 	C_INCR   = 0.733
 	N_SCALAR = -0.74
 
-	lexicon_file       = "vader/vader_lexicon.txt"
-	emoji_lexicon_file = "vader/emoji_utf8_lexicon.txt"
+	lexicon_file       = "/src/github.com/drankou/go-vader/vader/vader_lexicon.txt"
+	emoji_lexicon_file = "/src/github.com/drankou/go-vader/vader/emoji_utf8_lexicon.txt"
 
 	alpha = 15			//constant for normalize
 	include_nt = true 	//flag to check "n't" in negated
@@ -263,11 +264,23 @@ type SentimentIntensityAnalyzer struct {
 }
 
 // Initialize sentiment analyzer with lexicons
-func (sia *SentimentIntensityAnalyzer) Init() error {
-	//TODO path abs paths
+// if no filepaths passed to init, using default lexicon files
+func (sia *SentimentIntensityAnalyzer) Init(filenames ...string) error {
+	var lexiconFilename string
+	var emojiLexiconFilename string
 
+	if len(filenames) == 2 {
+		lexiconFilename = filenames[0]
+		emojiLexiconFilename = filenames[1]
+	} else {
+		gopath := os.Getenv("GOPATH")
+		lexiconFilename = gopath + lexicon_file
+		emojiLexiconFilename = gopath + emoji_lexicon_file
+	}
+
+	log.Println(lexiconFilename, emojiLexiconFilename)
 	// load lexicon file
-	lexicon, err := ioutil.ReadFile(lexicon_file)
+	lexicon, err := ioutil.ReadFile(lexiconFilename)
 	if err != nil {
 		return err
 	}
@@ -275,7 +288,7 @@ func (sia *SentimentIntensityAnalyzer) Init() error {
 	sia.LexiconMap = sia.makeLexiconMap(string(lexicon))
 
 	// load emoji lexicon file
-	emojiLexicon, err := ioutil.ReadFile(emoji_lexicon_file)
+	emojiLexicon, err := ioutil.ReadFile(emojiLexiconFilename)
 	if err != nil {
 		return err
 	}
