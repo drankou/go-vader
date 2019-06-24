@@ -259,6 +259,7 @@ func (s *SentiText) _wordsAndEmoticons() []string {
 type SentimentIntensityAnalyzer struct {
 	LexiconMap      map[string]float64
 	EmojiLexiconMap map[string]string
+	SpecialCaseIdioms map[string]float64
 }
 
 // Initialize sentiment analyzer with lexicons
@@ -291,6 +292,10 @@ func (sia *SentimentIntensityAnalyzer) Init(filenames ...string) error {
 	}
 
 	sia.EmojiLexiconMap = sia.makeEmojiLexiconMap(string(emojiLexicon))
+
+
+	//set special case idioms for analyzer
+	sia.SpecialCaseIdioms = SpecialCaseIdioms
 
 	return nil
 }
@@ -508,7 +513,7 @@ func (sia *SentimentIntensityAnalyzer) specialIdiomsCheck(valence float64, words
 	sequences := []string{onezero, twoonezero, twoone, threetwoone, threetwo}
 
 	for _, seq := range sequences {
-		if value, ok := SpecialCaseIdioms[seq]; ok {
+		if value, ok := sia.SpecialCaseIdioms[seq]; ok {
 			valence = value
 			break
 		}
@@ -516,14 +521,14 @@ func (sia *SentimentIntensityAnalyzer) specialIdiomsCheck(valence float64, words
 
 	if len(wordsAndEmoticonsLower)-1 > i {
 		zeroone := fmt.Sprintf("%s %s", wordsAndEmoticonsLower[i], wordsAndEmoticonsLower[i+1])
-		if value, ok := SpecialCaseIdioms[zeroone]; ok {
+		if value, ok := sia.SpecialCaseIdioms[zeroone]; ok {
 			valence = value
 		}
 	}
 
 	if len(wordsAndEmoticonsLower)-1 > i+1 {
 		zeroonetwo := fmt.Sprintf("%s %s %s", wordsAndEmoticonsLower[i], wordsAndEmoticonsLower[i+1], wordsAndEmoticonsLower[i+2])
-		if value, ok := SpecialCaseIdioms[zeroonetwo]; ok {
+		if value, ok := sia.SpecialCaseIdioms[zeroonetwo]; ok {
 			valence = value
 		}
 	}
