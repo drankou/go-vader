@@ -332,11 +332,29 @@ func (sia *SentimentIntensityAnalyzer) makeEmojiLexiconMap(emojiLexicon string) 
 	return emojiLexiconDict
 }
 
+//additional function for emoji check
+//for case if they are not separated by whitespace
+func checkEmojisInText(text string) string {
+	// find all emojis in text
+	regexAllEmoji := `[\x{1F600}-\x{1F6FF}|[\x{2600}-\x{26FF}]`
+	re := regexp.MustCompile(regexAllEmoji)
+
+	emojis := re.FindAllString(text, -1)
+	emojisText := strings.Join(emojis, " ")
+
+	//concatenate emojis separated by whitespace with cleaned text
+	cleanText := re.ReplaceAllString(text, "")
+	text = cleanText + " " + emojisText
+
+	return text
+}
+
 // Return a float for sentiment strength based on the input text.
 // Positive values are positive valence, negative value are negative valence.
 func (sia *SentimentIntensityAnalyzer) PolarityScores(text string) map[string]float64 {
 	var textNoEmojiList []string
 
+	text = checkEmojisInText(text)
 	textTokensList := strings.Fields(text)
 	for _, token := range textTokensList {
 		if description, ok := sia.EmojiLexiconMap[token]; ok {
