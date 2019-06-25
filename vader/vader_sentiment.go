@@ -341,7 +341,7 @@ func (sia *SentimentIntensityAnalyzer) makeEmojiLexiconMap(emojiLexicon string) 
 //for case if they are not separated by whitespace
 func checkEmojisInText(text string) string {
 	// find all emojis in text
-	regexAllEmoji := `[\x{1F600}-\x{1F6FF}|[\x{2600}-\x{26FF}]`
+	regexAllEmoji := `[\x{1F300}-\x{1F6FF}|[\x{2600}-\x{26FF}]`
 	re := regexp.MustCompile(regexAllEmoji)
 
 	emojis := re.FindAllString(text, -1)
