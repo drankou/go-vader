@@ -354,11 +354,24 @@ func checkEmojisInText(text string) string {
 	return text
 }
 
+// find percent difference occurences (+2%,-2% etc.)
+// and replace it with placeholder from lexicon
+func checkPercentsInText(text string) string{
+	rePos := regexp.MustCompile(`(\(|\s)*(\+(\d+|\d+(\.|\,)\d+)(\%|\s\%))(\)|\s)*`)
+	reNeg := regexp.MustCompile(`(\(|\s)*(\-(\d+|\d+(\.|\,)\d+)(\%|\s\%))(\)|\s)*`)
+
+	text = rePos.ReplaceAllString(text, " xpositivepercentx ")
+	text = reNeg.ReplaceAllString(text, " xnegativepercentx ")
+
+	return text
+}
+
 // Return a float for sentiment strength based on the input text.
 // Positive values are positive valence, negative value are negative valence.
 func (sia *SentimentIntensityAnalyzer) PolarityScores(text string) map[string]float64 {
 	var textNoEmojiList []string
 
+	text = checkPercentsInText(text)
 	text = checkEmojisInText(text)
 	textTokensList := strings.Fields(text)
 	for _, token := range textTokensList {
