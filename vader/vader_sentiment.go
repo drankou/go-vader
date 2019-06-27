@@ -29,9 +29,9 @@ const (
 )
 
 //for removing punctuation
-var RegexRemovePunctuation = regexp.MustCompile(fmt.Sprintf("[%s]", regexp.QuoteMeta(`!"//$%&'()*+,-./:;<=>?@[\]^_{|}~`+"`")))
+var RegexRemovePunctuation = regexp.MustCompile(fmt.Sprintf("[%s]", regexp.QuoteMeta(`!"//$%&'#()*+,-./:;<=>?@[\]^_{|}~`+"`")))
 
-var Punctuations = []string{".", "!", "?", ",", ";", ":", "-", "'", "\"", "!!", "!!!", "??", "???", "?!?", "!?!", "?!?!", "!?!?"}
+var Punctuations = []string{".", "..", "...", "!", "?", ",", ";", ":", "-", "'", "\"", "!!", "!!!", "??", "???", "?!?", "!?!", "?!?!", "!?!?", "????", "?????"}
 
 var Negations = []string{"aint", "arent", "cannot", "cant", "couldnt", "darent", "didnt", "doesnt",
 	"ain't", "aren't", "can't", "couldn't", "daren't", "didn't", "doesn't",
