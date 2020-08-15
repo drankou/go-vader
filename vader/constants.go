@@ -16,6 +16,9 @@ const (
 
 	Alpha     = 15   //constant for normalize
 	IncludeNt = true //flag to check "n't" in negated
+
+	MaxEM = 4
+	MaxQM = 3
 )
 
 //Match all undesirable punctuation

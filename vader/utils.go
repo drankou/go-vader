@@ -55,20 +55,6 @@ func IsAllCapDiff(words []string) bool {
 	return false
 }
 
-//additional function for emoji check
-//for case if they are not separated by whitespace
-func ReplaceEmojis(text string) string {
-	// find all emojis in text
-	emojis := EmojisRegexp.FindAllString(text, -1)
-	emojisText := strings.Join(emojis, " ")
-
-	//concatenate emojis separated by whitespace with cleaned text
-	cleanText := EmojisRegexp.ReplaceAllString(text, "")
-	text = cleanText + " " + emojisText
-
-	return text
-}
-
 // find percent difference occurences (+2%,-2% etc.)
 // and replace it with placeholder from lexicon
 func ReplacePercentages(text string) string {

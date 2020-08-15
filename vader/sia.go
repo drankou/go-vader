@@ -52,13 +52,13 @@ func (sia *SentimentIntensityAnalyzer) Init(filenames ...string) error {
 // Return a float for sentiment strength based on the input text.
 // Positive values are positive valence, negative value are negative valence.
 func (sia *SentimentIntensityAnalyzer) PolarityScores(text string) map[string]float64 {
-	var textNoEmojiList []string
-
-	//preprocess input text
-	text = ReplacePercentages(text)
-	text = ReplaceEmojis(text)
+	if strings.Contains(text, "%") {
+		text = ReplacePercentages(text)
+	}
 
 	textTokensList := strings.Fields(text)
+	textNoEmojiList := make([]string, 0, len(textTokensList))
+
 	for _, token := range textTokensList {
 		if description, ok := sia.EmojiLexiconMap[token]; ok {
 			textNoEmojiList = append(textNoEmojiList, description)
@@ -67,7 +67,7 @@ func (sia *SentimentIntensityAnalyzer) PolarityScores(text string) map[string]fl
 		}
 	}
 
-	text = strings.Join(textNoEmojiList, " ")
+	text = strings.TrimSpace(strings.Join(textNoEmojiList, " "))
 	sentiText := NewSentiText(text)
 
 	var sentiments []float64
@@ -77,18 +77,14 @@ func (sia *SentimentIntensityAnalyzer) PolarityScores(text string) map[string]fl
 		// check for vader_lexicon words that may be used as modifiers or negations
 		if _, ok := BoosterMap[word]; ok {
 			sentiments = append(sentiments, valence)
-			continue
-		}
-
-		if i < len(sentiText.WordsAndEmoticonsLower)-1 && word == "kind" && sentiText.WordsAndEmoticonsLower[i+1] == "of" {
+		} else if i < len(sentiText.WordsAndEmoticonsLower)-1 && word == "kind" && sentiText.WordsAndEmoticonsLower[i+1] == "of" {
 			sentiments = append(sentiments, valence)
-			continue
+		} else {
+			sentiments = sia.sentimentValence(valence, sentiText, word, i, sentiments)
 		}
-
-		sentiments = sia.sentimentValence(valence, sentiText, word, i, sentiments)
 	}
 
-	sentiments = sia.butCheck(sentiText.WordsAndEmoticonsLower, sentiments)
+	sentiments = butCheck(sentiText.WordsAndEmoticonsLower, sentiments)
 	valenceDict := sia.scoreValence(sentiments, text)
 
 	return valenceDict
@@ -112,7 +108,6 @@ func (sia *SentimentIntensityAnalyzer) sentimentValence(valence float64, sentiTe
 					(sentiText.WordsAndEmoticonsLower[i-1] == "or" || sentiText.WordsAndEmoticonsLower[i-1] == "nor")) {
 				valence = value * N_SCALAR
 			}
-
 		}
 
 		//check if sentiment laden word is in ALL CAPS (while others aren't)
@@ -128,26 +123,22 @@ func (sia *SentimentIntensityAnalyzer) sentimentValence(valence float64, sentiTe
 			// dampen the scalar modifier of preceding words and emoticons
 			// (excluding the ones that immediately preceed the item) based
 			// on their distance from the current item.
-			if i <= startIndex {
-				continue
-			}
+			if i > startIndex {
+				if _, ok := sia.LexiconMap[sentiText.WordsAndEmoticonsLower[i-(startIndex+1)]]; !ok {
+					s := scalarIncDec(sentiText.WordsAndEmoticonsLower[i-(startIndex+1)], valence, sentiText.IsCapDiff)
 
-			if _, ok := sia.LexiconMap[sentiText.WordsAndEmoticonsLower[i-(startIndex+1)]]; !ok {
-				s := scalarIncDec(sentiText.WordsAndEmoticonsLower[i-(startIndex+1)], valence, sentiText.IsCapDiff)
+					if startIndex == 1 && s != 0 {
+						s *= 0.95
+					}
+					if startIndex == 2 && s != 0 {
+						s *= 0.9
+					}
 
-				if startIndex == 1 && s != 0 {
-					s *= 0.95
-				}
-
-				if startIndex == 2 && s != 0 {
-					s *= 0.9
-				}
-
-				valence += s
-				valence = sia.negationCheck(valence, sentiText.WordsAndEmoticonsLower, startIndex, i)
-
-				if startIndex == 2 {
-					valence = sia.specialIdiomsCheck(valence, sentiText.WordsAndEmoticonsLower, i)
+					valence += s
+					valence = sia.negationCheck(valence, sentiText.WordsAndEmoticonsLower, startIndex, i)
+					if startIndex == 2 {
+						valence = sia.specialIdiomsCheck(valence, sentiText.WordsAndEmoticonsLower, i)
+					}
 				}
 			}
 		}
@@ -175,14 +166,14 @@ func (sia *SentimentIntensityAnalyzer) leastCheck(valence float64, wordsAndEmoti
 	return valence
 }
 
-func (sia *SentimentIntensityAnalyzer) butCheck(wordsAndEmoticons []string, sentiments []float64) []float64 {
+func butCheck(wordsAndEmoticons []string, sentiments []float64) []float64 {
 	// check for modification in sentiment due to contrastive conjunction 'but'
-	for bi, wl := range wordsAndEmoticons {
-		if wl == "but" {
+	for wi, word := range wordsAndEmoticons {
+		if word == "but" {
 			for si, sentiment := range sentiments {
-				if si < bi {
+				if si < wi {
 					sentiments[si] = sentiment * 0.5
-				} else if si > bi {
+				} else if si > wi {
 					sentiments[si] = sentiment * 1.5
 				}
 			}
@@ -240,7 +231,6 @@ func (sia *SentimentIntensityAnalyzer) specialIdiomsCheck(valence float64, words
 // check for sentiment laden idioms that don't contain a lexicon word
 func (sia *SentimentIntensityAnalyzer) sentimentLadenIdiomsCheck(valence float64, text string) float64 {
 	// TODO in future
-
 	return 0.0
 }
 
@@ -264,7 +254,9 @@ func (sia *SentimentIntensityAnalyzer) negationCheck(valence float64, wordsAndEm
 			return valence * N_SCALAR
 		}
 	case 2:
-		if wordsAndEmoticons[i-3] == "never" && (wordsAndEmoticons[i-2] == "so" || wordsAndEmoticons[i-2] == "this") || (wordsAndEmoticons[i-1] == "so" || wordsAndEmoticons[i-1] == "this") {
+		if wordsAndEmoticons[i-3] == "never" &&
+			((wordsAndEmoticons[i-2] == "so" || wordsAndEmoticons[i-2] == "this") ||
+				(wordsAndEmoticons[i-1] == "so" || wordsAndEmoticons[i-1] == "this")) {
 			return valence * 1.25
 		} else if wordsAndEmoticons[i-3] == "without" && (wordsAndEmoticons[i-2] == "doubt" || wordsAndEmoticons[i-1] == "doubt") {
 			return valence
@@ -281,37 +273,32 @@ func (sia *SentimentIntensityAnalyzer) punctuationEmphasis(text string) float64 
 	epAmplifier := sia.amplifyEP(text)
 	qmAmplifier := sia.amplifyQM(text)
 
-	punctEmphAmplifier := epAmplifier + qmAmplifier
-	return punctEmphAmplifier
+	return epAmplifier + qmAmplifier
 }
 
 // check for added emphasis resulting from exclamation points (up to 4 of them)
 func (sia *SentimentIntensityAnalyzer) amplifyEP(text string) float64 {
 	epCount := strings.Count(text, "!")
-	if epCount > 4 {
-		epCount = 4
+	if epCount > MaxEM {
+		epCount = MaxEM
 	}
 
 	// (empirically derived mean sentiment intensity rating increase for exclamation points)
-	epAmplifier := float64(epCount) * 0.292
-
-	return epAmplifier
+	return float64(epCount) * 0.292
 }
 
 // check for added emphasis resulting from question marks (2 or 3+)
 func (sia *SentimentIntensityAnalyzer) amplifyQM(text string) float64 {
 	qmCount := strings.Count(text, "?")
-	qmAmplifier := 0.0
 	if qmCount > 1 {
-		if qmCount <= 3 {
-			// (empirically derived mean sentiment intensity rating increase for question marks)
-			qmAmplifier = float64(qmCount) * 0.18
+		if qmCount <= MaxQM {
+			return float64(qmCount) * 0.18
 		} else {
-			qmAmplifier = 0.96
+			return 0.96
 		}
 	}
 
-	return qmAmplifier
+	return 0.0
 }
 
 // want separate positive versus negative sentiment scores
@@ -341,6 +328,7 @@ func (sia *SentimentIntensityAnalyzer) scoreValence(sentiments []float64, text s
 
 	if len(sentiments) > 0 {
 		sumS := floats.Sum(sentiments)
+
 		// compute and add emphasis from punctuation in text
 		punctEmphAmplifier := sia.punctuationEmphasis(text)
 		if sumS > 0 {
@@ -348,11 +336,10 @@ func (sia *SentimentIntensityAnalyzer) scoreValence(sentiments []float64, text s
 		} else if sumS < 0 {
 			sumS -= punctEmphAmplifier
 		}
-
 		compound = Normalize(sumS)
+
 		// discriminate between positive, negative and neutral sentiment scores
 		posSum, negSum, neuCount := sia.siftSentimentScores(sentiments)
-
 		if posSum > math.Abs(negSum) {
 			posSum += punctEmphAmplifier
 		} else if posSum < math.Abs(negSum) {
@@ -366,14 +353,14 @@ func (sia *SentimentIntensityAnalyzer) scoreValence(sentiments []float64, text s
 		neu = math.Abs(neuCount / total)
 	}
 
-	sentimentDict := map[string]float64{
+	sentimentMap := map[string]float64{
 		"pos":      floats.Round(pos, 3),
 		"neg":      floats.Round(neg, 3),
 		"neu":      floats.Round(neu, 3),
 		"compound": floats.Round(compound, 4),
 	}
 
-	return sentimentDict
+	return sentimentMap
 }
 
 // Check if the preceding words increase, decrease, or negate/nullify the
