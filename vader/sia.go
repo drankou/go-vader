@@ -85,16 +85,16 @@ func (sia *SentimentIntensityAnalyzer) PolarityScores(text string) map[string]fl
 	sentiText := NewSentiText(text)
 
 	var sentiments []float64
-	for i, word := range sentiText.WordsAndEmoticonsLower {
+	for wordIndex, word := range sentiText.WordsAndEmoticonsLower {
 		valence := 0.0
 
 		// check for vader_lexicon words that may be used as modifiers or negations
 		if _, ok := BoosterMap[word]; ok {
 			sentiments = append(sentiments, valence)
-		} else if i < len(sentiText.WordsAndEmoticonsLower)-1 && word == "kind" && sentiText.WordsAndEmoticonsLower[i+1] == "of" {
+		} else if wordIndex < len(sentiText.WordsAndEmoticonsLower)-1 && word == "kind" && sentiText.WordsAndEmoticonsLower[wordIndex+1] == "of" {
 			sentiments = append(sentiments, valence)
 		} else {
-			sentiments = sia.sentimentValence(valence, sentiText, word, i, sentiments)
+			sentiments = sia.sentimentValence(valence, sentiText, word, wordIndex, sentiments)
 		}
 	}
 
@@ -104,22 +104,22 @@ func (sia *SentimentIntensityAnalyzer) PolarityScores(text string) map[string]fl
 	return valenceDict
 }
 
-func (sia *SentimentIntensityAnalyzer) sentimentValence(valence float64, sentiText *SentiText, token string, i int, sentiments []float64) []float64 {
+func (sia *SentimentIntensityAnalyzer) sentimentValence(valence float64, sentiText *SentiText, token string, tokenIndex int, sentiments []float64) []float64 {
 	//get the sentiment valence
 	if value, ok := sia.LexiconMap[token]; ok {
 		valence = value
 
 		//check for "no" as negation for an adjacent lexicon item vs "no" as its own stand-alone lexicon item
-		if token == "no" && i != len(sentiText.WordsAndEmoticons)-1 {
-			if _, found := sia.LexiconMap[sentiText.WordsAndEmoticonsLower[i+1]]; found {
+		if token == "no" && tokenIndex != len(sentiText.WordsAndEmoticons)-1 {
+			if _, found := sia.LexiconMap[sentiText.WordsAndEmoticonsLower[tokenIndex+1]]; found {
 				// don't use valence of "no" as a lexicon item. Instead set it's valence to 0.0 and negate the next item
 				valence = 0.0
 			}
 
-			if (i > 0 && sentiText.WordsAndEmoticonsLower[i-1] == "no") ||
-				(i > 1 && sentiText.WordsAndEmoticonsLower[i-2] == "no") ||
-				(i > 2 && sentiText.WordsAndEmoticonsLower[i-3] == "no" &&
-					(sentiText.WordsAndEmoticonsLower[i-1] == "or" || sentiText.WordsAndEmoticonsLower[i-1] == "nor")) {
+			if (tokenIndex > 0 && sentiText.WordsAndEmoticonsLower[tokenIndex-1] == "no") ||
+				(tokenIndex > 1 && sentiText.WordsAndEmoticonsLower[tokenIndex-2] == "no") ||
+				(tokenIndex > 2 && sentiText.WordsAndEmoticonsLower[tokenIndex-3] == "no" &&
+					(sentiText.WordsAndEmoticonsLower[tokenIndex-1] == "or" || sentiText.WordsAndEmoticonsLower[tokenIndex-1] == "nor")) {
 				valence = value * N_SCALAR
 			}
 		}
@@ -133,34 +133,46 @@ func (sia *SentimentIntensityAnalyzer) sentimentValence(valence float64, sentiTe
 			}
 		}
 
+		//check previous three tokens with given token
 		for startIndex := 0; startIndex < 3; startIndex++ {
 			// dampen the scalar modifier of preceding words and emoticons
 			// (excluding the ones that immediately preceed the item) based
 			// on their distance from the current item.
-			if i > startIndex {
-				if _, ok := sia.LexiconMap[sentiText.WordsAndEmoticonsLower[i-(startIndex+1)]]; !ok {
-					s := scalarIncDec(sentiText.WordsAndEmoticonsLower[i-(startIndex+1)], valence, sentiText.IsCapDiff)
+			if tokenIndex > startIndex {
+				if _, ok := sia.LexiconMap[sentiText.WordsAndEmoticonsLower[tokenIndex-(startIndex+1)]]; !ok {
+					// add boost value to actual valence
+					valence += getBoostValue(sentiText.WordsAndEmoticonsLower[tokenIndex-(startIndex+1)], startIndex, valence, sentiText.IsCapDiff)
 
-					if startIndex == 1 && s != 0 {
-						s *= 0.95
-					}
-					if startIndex == 2 && s != 0 {
-						s *= 0.9
-					}
-
-					valence += s
-					valence = sia.negationCheck(valence, sentiText.WordsAndEmoticonsLower, startIndex, i)
-					if startIndex == 2 {
-						valence = sia.specialIdiomsCheck(valence, sentiText.WordsAndEmoticonsLower, i)
-					}
+					// check negation
+					valence = sia.negationCheck(valence, sentiText.WordsAndEmoticonsLower, startIndex, tokenIndex)
 				}
 			}
+			
+			//check special case idioms
+			valence = sia.specialIdiomsCheck(valence, sentiText.WordsAndEmoticonsLower, tokenIndex)
 		}
-		valence = sia.leastCheck(valence, sentiText.WordsAndEmoticonsLower, i)
+		valence = sia.leastCheck(valence, sentiText.WordsAndEmoticonsLower, tokenIndex)
 	}
 
 	sentiments = append(sentiments, valence)
 	return sentiments
+}
+
+// check boost of previous words
+func getBoostValue(token string, startIndex int, valence float64, isCapDiff bool) float64 {
+	boost := scalarIncDec(token, valence, isCapDiff)
+	if boost != 0 {
+		switch startIndex {
+		case 0:
+			boost *= 1
+		case 1:
+			boost *= 0.95
+		case 2:
+			boost *= 0.9
+		}
+	}
+
+	return boost
 }
 
 func (sia *SentimentIntensityAnalyzer) leastCheck(valence float64, wordsAndEmoticons []string, i int) float64 {
@@ -197,17 +209,35 @@ func butCheck(wordsAndEmoticons []string, sentiments []float64) []float64 {
 	return sentiments
 }
 
-func (sia *SentimentIntensityAnalyzer) specialIdiomsCheck(valence float64, wordsAndEmoticons []string, i int) float64 {
+func (sia *SentimentIntensityAnalyzer) specialIdiomsCheck(valence float64, wordsAndEmoticons []string, tokenIndex int) float64 {
 	if len(wordsAndEmoticons) == 0 {
 		return valence
 	}
 
-	oneZero := fmt.Sprintf("%s %s", wordsAndEmoticons[i-1], wordsAndEmoticons[i])
-	twoOneZero := fmt.Sprintf("%s %s %s", wordsAndEmoticons[i-2], wordsAndEmoticons[i-1], wordsAndEmoticons[i])
-	twoOne := fmt.Sprintf("%s %s", wordsAndEmoticons[i-2], wordsAndEmoticons[i-1])
-	threeTwoOne := fmt.Sprintf("%s %s %s", wordsAndEmoticons[i-3], wordsAndEmoticons[i-2], wordsAndEmoticons[i-1])
-	threeTwo := fmt.Sprintf("%s %s", wordsAndEmoticons[i-3], wordsAndEmoticons[i-2])
-	sequences := []string{oneZero, twoOneZero, twoOne, threeTwoOne, threeTwo}
+	var sequences []string
+
+	//construct possible ngram sequences
+	switch v := tokenIndex; {
+	case v > 2:
+		threeTwoOne := fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex-3], wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1])
+		threeTwo := fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-3], wordsAndEmoticons[tokenIndex-2])
+
+		sequences = append(sequences, []string{threeTwoOne, threeTwo}...)
+		fallthrough
+	case v > 1:
+		twoOneZero := fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1], wordsAndEmoticons[tokenIndex])
+		twoOne := fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1])
+
+		sequences = append(sequences, []string{twoOneZero, twoOne}...)
+		fallthrough
+	case v > 0:
+		oneZero := fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-1], wordsAndEmoticons[tokenIndex])
+
+		sequences = append(sequences, oneZero)
+	default:
+		//unexpected condition
+		return 0.0
+	}
 
 	for _, seq := range sequences {
 		if value, ok := sia.SpecialCaseIdioms[seq]; ok {
@@ -216,23 +246,22 @@ func (sia *SentimentIntensityAnalyzer) specialIdiomsCheck(valence float64, words
 		}
 	}
 
-	if len(wordsAndEmoticons)-1 > i {
-		zeroOne := fmt.Sprintf("%s %s", wordsAndEmoticons[i], wordsAndEmoticons[i+1])
+	if len(wordsAndEmoticons)-1 > tokenIndex {
+		zeroOne := fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex], wordsAndEmoticons[tokenIndex+1])
 		if value, ok := sia.SpecialCaseIdioms[zeroOne]; ok {
 			valence = value
 		}
 	}
 
-	if len(wordsAndEmoticons)-1 > i+1 {
-		zeroOneTwo := fmt.Sprintf("%s %s %s", wordsAndEmoticons[i], wordsAndEmoticons[i+1], wordsAndEmoticons[i+2])
+	if len(wordsAndEmoticons)-1 > tokenIndex+1 {
+		zeroOneTwo := fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex], wordsAndEmoticons[tokenIndex+1], wordsAndEmoticons[tokenIndex+2])
 		if value, ok := sia.SpecialCaseIdioms[zeroOneTwo]; ok {
 			valence = value
 		}
 	}
 
 	// check for booster/dampener bi-grams such as 'sort of' or 'kind of'
-	nGrams := []string{threeTwoOne, threeTwo, twoOne}
-	for _, ngram := range nGrams {
+	for _, ngram := range sequences {
 		if value, ok := BoosterMap[ngram]; ok {
 			valence = valence + value
 		}
