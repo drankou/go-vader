@@ -2,10 +2,11 @@ package vader
 
 import (
 	"fmt"
-	"github.com/gonum/floats"
 	"io/ioutil"
 	"math"
 	"strings"
+
+	"github.com/gonum/floats"
 )
 
 //Give a sentiment intensity score to sentences.
@@ -56,9 +57,21 @@ func (sia *SentimentIntensityAnalyzer) PolarityScores(text string) map[string]fl
 		text = ReplacePercentages(text)
 	}
 
-	textTokensList := strings.Fields(text)
-	textNoEmojiList := make([]string, 0, len(textTokensList))
+	// create list of tokens from text
+	var textTokensList []string
+	for _, token := range strings.Fields(text) {
+		if EmojisRegexp.Match([]byte(token)) {
+			emoticons := strings.Split(token, "")
+			for _, emoticon := range emoticons {
+				textTokensList = append(textTokensList, emoticon)
+			}
+		} else {
+			textTokensList = append(textTokensList, token)
+		}
+	}
 
+	// replace all emojis with its description
+	textNoEmojiList := make([]string, 0, len(textTokensList))
 	for _, token := range textTokensList {
 		if description, ok := sia.EmojiLexiconMap[token]; ok {
 			textNoEmojiList = append(textNoEmojiList, description)
@@ -67,6 +80,7 @@ func (sia *SentimentIntensityAnalyzer) PolarityScores(text string) map[string]fl
 		}
 	}
 
+	// prepare sentiText for further processing
 	text = strings.TrimSpace(strings.Join(textNoEmojiList, " "))
 	sentiText := NewSentiText(text)
 

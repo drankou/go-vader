@@ -13,6 +13,17 @@ func TestSentimentIntensityAnalyzer_Init(t *testing.T) {
 	}
 }
 
+func TestSentimentIntensityAnalyzer_PolarityScores_Emoticons(t *testing.T) {
+	sia := SentimentIntensityAnalyzer{}
+	err := sia.Init()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sentence := "😁😁😁😁😁"
+
+	fmt.Printf("%s:%+v", sentence, sia.PolarityScores(sentence))
+}
+
 func TestSentimentIntensityAnalyzer_PolarityScores(t *testing.T) {
 	sia := SentimentIntensityAnalyzer{}
 	err := sia.Init()
