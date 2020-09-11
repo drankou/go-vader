@@ -1,7 +1,6 @@
 package vader
 
 import (
-	"fmt"
 	"regexp"
 )
 
@@ -22,7 +21,7 @@ const (
 )
 
 //Match all undesirable punctuation
-var PunctuationRegexp = regexp.MustCompile(fmt.Sprintf("[%s]", regexp.QuoteMeta(`!"//$%&'#()*+,-./:;<=>?@[\]^_{|}~`+"`")))
+var PunctuationRegexp = regexp.MustCompile(`[\!\"\/\$\%\&\'\#\(\)\*\+\,\-\.\:\;\<\=\>\?\@\[\]\^\_\{\|\}\~\x60’]`)
 
 //Match emoji characters
 var EmojisRegexp = regexp.MustCompile(`[\x{1F300}-\x{1F6FF}|[\x{2600}-\x{26FF}]`)
@@ -75,4 +74,5 @@ var SpecialCaseIdioms = map[string]float64{
 	"yeah right":    -2,
 	"kiss of death": -1.5,
 	"bus stop":      0,
+
 }
