@@ -31,7 +31,7 @@ func CleanWordsAndEmoticons(text string) []string {
 	cleanWords := make([]string, 0, len(words))
 	for _, word := range words {
 		cleanWord := strings.TrimFunc(word, func(r rune) bool {
-			return PunctuationRegexp.Match([]byte{byte(r)}) || r == '‘'
+			return PunctuationRegexp.Match([]byte{byte(r)}) || r == '‘' || r == '’'
 		})
 
 		if len(cleanWord) <= 2 {
