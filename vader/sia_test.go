@@ -125,6 +125,32 @@ var sentences = []string{"VADER is smart, handsome, and funny.", // positive sen
 	"Not bad at all",                             // Capitalized negation
 }
 
+func TestSentimentIntensityAnalyzer_PolarityScores_SpecialCaseIdioms(t *testing.T) {
+	sia := SentimentIntensityAnalyzer{}
+	err := sia.Init()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var specialCaseIdiomsSentences = map[string]int{
+		"bad ass": 1,
+		"the shit": 1,
+		"bus stop": 0,
+		"stop bus": -1,
+		"death and kiss": -1,
+		"kiss of death": -1,
+	}
+
+	for sentence, label := range specialCaseIdiomsSentences {
+		sentiment := sia.PolarityScores(sentence)["compound"]
+		if (label == 1 && sentiment < 0.05) || (label == -1 && sentiment > -0.05) || (label == 0 && (sentiment < -0.05 || sentiment > 0.05)){
+			t.Errorf("Wrong sentiment for sentence: %s :%f", sentence, sentiment)
+		} else {
+			t.Logf("%s : %f", sentence, sentiment)
+		}
+	}
+}
+
 func BenchmarkSentimentIntensityAnalyzer_PolarityScores(b *testing.B) {
 	sia := &SentimentIntensityAnalyzer{}
 	err := sia.Init()

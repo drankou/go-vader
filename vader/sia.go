@@ -84,7 +84,7 @@ func (sia *SentimentIntensityAnalyzer) PolarityScores(text string) map[string]fl
 	text = strings.TrimSpace(strings.Join(textNoEmojiList, " "))
 	sentiText := NewSentiText(text)
 
-	var sentiments []float64
+	sentiments := make([]float64, 0, len(sentiText.WordsAndEmoticonsLower))
 	for wordIndex, word := range sentiText.WordsAndEmoticonsLower {
 		valence := 0.0
 
@@ -133,11 +133,8 @@ func (sia *SentimentIntensityAnalyzer) sentimentValence(valence float64, sentiTe
 			}
 		}
 
-		//check previous three tokens with given token
+		//check preceding words modifiers
 		for startIndex := 0; startIndex < 3; startIndex++ {
-			// dampen the scalar modifier of preceding words and emoticons
-			// (excluding the ones that immediately preceed the item) based
-			// on their distance from the current item.
 			if tokenIndex > startIndex {
 				if _, ok := sia.LexiconMap[sentiText.WordsAndEmoticonsLower[tokenIndex-(startIndex+1)]]; !ok {
 					// add boost value to actual valence
@@ -147,12 +144,14 @@ func (sia *SentimentIntensityAnalyzer) sentimentValence(valence float64, sentiTe
 					valence = sia.negationCheck(valence, sentiText.WordsAndEmoticonsLower, startIndex, tokenIndex)
 				}
 			}
-			
-			//check special case idioms
-			valence = sia.specialIdiomsCheck(valence, sentiText.WordsAndEmoticonsLower, tokenIndex)
 		}
-		valence = sia.leastCheck(valence, sentiText.WordsAndEmoticonsLower, tokenIndex)
 	}
+
+	//check special case idioms
+	valence = sia.specialIdiomsCheck(valence, sentiText.WordsAndEmoticonsLower, tokenIndex)
+
+	//least check
+	valence = sia.leastCheck(valence, sentiText.WordsAndEmoticonsLower, tokenIndex)
 
 	sentiments = append(sentiments, valence)
 	return sentiments
@@ -175,17 +174,15 @@ func getBoostValue(token string, startIndex int, valence float64, isCapDiff bool
 	return boost
 }
 
-func (sia *SentimentIntensityAnalyzer) leastCheck(valence float64, wordsAndEmoticons []string, i int) float64 {
+func (sia *SentimentIntensityAnalyzer) leastCheck(valence float64, wordsAndEmoticons []string, wordIndex int) float64 {
 	// check for negation case using "least"
-	if i > 1 {
-		if _, ok := sia.LexiconMap[wordsAndEmoticons[i-1]]; !ok && wordsAndEmoticons[i-1] == "least" {
-			if wordsAndEmoticons[i-2] != "at" && wordsAndEmoticons[i-2] != "very" {
-				valence = valence * N_SCALAR
-			}
+	if wordIndex > 1 {
+		if wordsAndEmoticons[wordIndex-1] == "least" && (wordsAndEmoticons[wordIndex-2] != "at" && wordsAndEmoticons[wordIndex-2] != "very") {
+			return valence * N_SCALAR
 		}
-	} else if i > 0 {
-		if _, ok := sia.LexiconMap[wordsAndEmoticons[i-1]]; !ok && wordsAndEmoticons[i-1] == "least" {
-			valence = valence * N_SCALAR
+	} else if wordIndex > 0 {
+		if wordsAndEmoticons[wordIndex-1] == "least" {
+			return valence * N_SCALAR
 		}
 	}
 
@@ -214,54 +211,39 @@ func (sia *SentimentIntensityAnalyzer) specialIdiomsCheck(valence float64, words
 		return valence
 	}
 
-	var sequences []string
-
-	//construct possible ngram sequences
+	ngrams := make(map[string]string)
+	//construct possible ngrams
 	switch v := tokenIndex; {
 	case v > 2:
-		threeTwoOne := fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex-3], wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1])
-		threeTwo := fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-3], wordsAndEmoticons[tokenIndex-2])
-
-		sequences = append(sequences, []string{threeTwoOne, threeTwo}...)
+		ngrams["threeTwoOne"] = fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex-3], wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1])
+		ngrams["threeTwo"] = fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-3], wordsAndEmoticons[tokenIndex-2])
 		fallthrough
 	case v > 1:
-		twoOneZero := fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1], wordsAndEmoticons[tokenIndex])
-		twoOne := fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1])
-
-		sequences = append(sequences, []string{twoOneZero, twoOne}...)
+		ngrams["twoOneZero"] = fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1], wordsAndEmoticons[tokenIndex])
+		ngrams["twoOne"] = fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1])
 		fallthrough
 	case v > 0:
-		oneZero := fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-1], wordsAndEmoticons[tokenIndex])
-
-		sequences = append(sequences, oneZero)
-	default:
-		//unexpected condition
-		return 0.0
+		ngrams["oneZero"] = fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-1], wordsAndEmoticons[tokenIndex])
 	}
 
-	for _, seq := range sequences {
-		if value, ok := sia.SpecialCaseIdioms[seq]; ok {
+	if len(wordsAndEmoticons)-1 > tokenIndex+1 {
+		ngrams["zeroOneTwo"] = fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex], wordsAndEmoticons[tokenIndex+1], wordsAndEmoticons[tokenIndex+2])
+	}
+
+	if len(wordsAndEmoticons)-1 > tokenIndex {
+		ngrams["zeroOne"] = fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex], wordsAndEmoticons[tokenIndex+1])
+	}
+
+	for _, ngram := range ngrams {
+		if value, ok := sia.SpecialCaseIdioms[ngram]; ok {
 			valence = value
 			break
 		}
 	}
 
-	if len(wordsAndEmoticons)-1 > tokenIndex {
-		zeroOne := fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex], wordsAndEmoticons[tokenIndex+1])
-		if value, ok := sia.SpecialCaseIdioms[zeroOne]; ok {
-			valence = value
-		}
-	}
-
-	if len(wordsAndEmoticons)-1 > tokenIndex+1 {
-		zeroOneTwo := fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex], wordsAndEmoticons[tokenIndex+1], wordsAndEmoticons[tokenIndex+2])
-		if value, ok := sia.SpecialCaseIdioms[zeroOneTwo]; ok {
-			valence = value
-		}
-	}
-
+	possibleBoosters := []string{ngrams["threeTwoOne"], ngrams["threeTwo"], ngrams["twoOne"]}
 	// check for booster/dampener bi-grams such as 'sort of' or 'kind of'
-	for _, ngram := range sequences {
+	for _, ngram := range possibleBoosters {
 		if value, ok := BoosterMap[ngram]; ok {
 			valence = valence + value
 		}

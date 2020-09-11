@@ -74,4 +74,5 @@ var SpecialCaseIdioms = map[string]float64{
 	"bad ass":       1.5,
 	"yeah right":    -2,
 	"kiss of death": -1.5,
+	"bus stop":      0,
 }
