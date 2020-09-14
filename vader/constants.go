@@ -68,11 +68,11 @@ var SentimentLadenIdioms = map[string]int{
 
 // special case idioms map containing lexicon words
 var SpecialCaseIdioms = map[string]float64{
-	"the shit":      3,
-	"the bomb":      3,
-	"bad ass":       1.5,
-	"yeah right":    -2,
-	"kiss of death": -1.5,
-	"bus stop":      0,
-
+	"the shit":        3,
+	"the bomb":        3,
+	"bad ass":         1.5,
+	"yeah right":      -2,
+	"kiss of death":   -1.5,
+	"bus stop":        0,
+	"pyramide scheme": -2.5,
 }
