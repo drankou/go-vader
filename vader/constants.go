@@ -48,7 +48,8 @@ var BoosterMap = map[string]float64{"absolutely": B_INCR, "amazingly": B_INCR, "
 	"unbelievably": B_INCR, "unusually": B_INCR, "utter": B_INCR, "utterly": B_INCR, "very": B_INCR, "almost": B_DECR,
 	"barely": B_DECR, "hardly": B_DECR, "just enough": B_DECR, "kind of": B_DECR, "kinda": B_DECR, "kindof": B_DECR,
 	"kind-of": B_DECR, "less": B_DECR, "little": B_DECR, "marginally": B_DECR, "occasionally": B_DECR, "partly": B_DECR,
-	"scarcely": B_DECR, "slightly": B_DECR, "somewhat": B_DECR, "sort of": B_DECR, "sorta": B_DECR, "sortof": B_DECR, "sort-of": B_DECR,
+	"scarcely": B_DECR, "slightly": B_DECR, "somewhat": B_DECR, "sort of": B_DECR, "sorta": B_DECR, "sortof": B_DECR,
+	"too": B_INCR, "sort-of": B_DECR,
 }
 
 var SentimentLadenIdioms = map[string]int{
