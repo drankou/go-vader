@@ -1,7 +1,6 @@
 package vader
 
 import (
-	"fmt"
 	"io/ioutil"
 	"math"
 	"strings"
@@ -193,32 +192,40 @@ func (sia *SentimentIntensityAnalyzer) specialIdiomsCheck(valence float64, words
 		return valence
 	}
 
+	var specialCaseIdiomStartIndex int
 	ngrams := make(map[string]string)
-	//construct possible ngrams
-	switch v := tokenIndex; {
-	case v > 2:
-		ngrams["threeTwoOne"] = fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex-3], wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1])
-		ngrams["threeTwo"] = fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-3], wordsAndEmoticons[tokenIndex-2])
+	//preceding words ngrams
+	switch i := tokenIndex; {
+	case i > 2:
+		ngrams["threeTwoOne"] = strings.Join(wordsAndEmoticons[tokenIndex-3:tokenIndex], " ")
+		ngrams["threeTwo"] = strings.Join(wordsAndEmoticons[tokenIndex-3:tokenIndex-1], " ")
 		fallthrough
-	case v > 1:
-		ngrams["twoOneZero"] = fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1], wordsAndEmoticons[tokenIndex])
-		ngrams["twoOne"] = fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-2], wordsAndEmoticons[tokenIndex-1])
+	case i > 1:
+		ngrams["twoOneZero"] = strings.Join(wordsAndEmoticons[tokenIndex-2:tokenIndex+1], " ")
+		ngrams["twoOne"] = strings.Join(wordsAndEmoticons[tokenIndex-2:tokenIndex], " ")
 		fallthrough
-	case v > 0:
-		ngrams["oneZero"] = fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex-1], wordsAndEmoticons[tokenIndex])
+	case i > 0:
+		ngrams["oneZero"] = strings.Join(wordsAndEmoticons[tokenIndex-1:tokenIndex+1], " ")
 	}
 
-	if len(wordsAndEmoticons)-1 > tokenIndex+1 {
-		ngrams["zeroOneTwo"] = fmt.Sprintf("%s %s %s", wordsAndEmoticons[tokenIndex], wordsAndEmoticons[tokenIndex+1], wordsAndEmoticons[tokenIndex+2])
+	//succeeding words ngrams
+	switch length := len(wordsAndEmoticons) - 1; {
+	case length > tokenIndex+1:
+		ngrams["zeroOneTwo"] = strings.Join(wordsAndEmoticons[tokenIndex:tokenIndex+3], " ")
+		fallthrough
+	case length > tokenIndex:
+		ngrams["zeroOne"] = strings.Join(wordsAndEmoticons[tokenIndex:tokenIndex+2], " ")
 	}
 
-	if len(wordsAndEmoticons)-1 > tokenIndex {
-		ngrams["zeroOne"] = fmt.Sprintf("%s %s", wordsAndEmoticons[tokenIndex], wordsAndEmoticons[tokenIndex+1])
-	}
-
-	for _, ngram := range ngrams {
+	for key, ngram := range ngrams {
 		if value, ok := sia.SpecialCaseIdioms[ngram]; ok {
 			valence = value
+
+			if key != "zeroOne" && key != "zeroOneTwo" {
+				specialCaseIdiomStartIndex = tokenIndex - (len(strings.Fields(ngram)) - 1)
+			} else {
+				specialCaseIdiomStartIndex = tokenIndex
+			}
 			break
 		}
 	}
