@@ -103,13 +103,7 @@ func MakeEmojiLexiconMap(emojiLexicon string) map[string]string {
 
 // Determine if input contains negation words
 func ContainsNegation(inputWords []string) bool {
-	var inputWordsLowercased []string
-
-	for _, inputWord := range inputWords {
-		inputWordsLowercased = append(inputWordsLowercased, strings.ToLower(inputWord))
-	}
-
-	for i, word := range inputWordsLowercased {
+	for i, word := range inputWords {
 		for _, negWord := range Negations {
 			if negWord == word {
 				return true
@@ -117,7 +111,7 @@ func ContainsNegation(inputWords []string) bool {
 		}
 
 		if word == "least" {
-			if i > 0 && inputWordsLowercased[i-1] != "at" {
+			if i > 0 && inputWords[i-1] != "at" && inputWords[i-1] != "very" {
 				return true
 			}
 		}
