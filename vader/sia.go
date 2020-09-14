@@ -141,7 +141,7 @@ func (sia *SentimentIntensityAnalyzer) sentimentValence(valence float64, sentiTe
 					valence += getBoostValue(sentiText.WordsAndEmoticonsLower[tokenIndex-(startIndex+1)], startIndex, valence, sentiText.IsCapDiff)
 
 					// check negation
-					valence = sia.negationCheck(valence, sentiText.WordsAndEmoticonsLower, startIndex, tokenIndex)
+					valence = sia.negationCheck(valence, sentiText.WordsAndEmoticonsLower, tokenIndex)
 				}
 			}
 		}
@@ -149,9 +149,6 @@ func (sia *SentimentIntensityAnalyzer) sentimentValence(valence float64, sentiTe
 
 	//check special case idioms
 	valence = sia.specialIdiomsCheck(valence, sentiText.WordsAndEmoticonsLower, tokenIndex)
-
-	//least check
-	valence = sia.leastCheck(valence, sentiText.WordsAndEmoticonsLower, tokenIndex)
 
 	sentiments = append(sentiments, valence)
 	return sentiments
@@ -172,21 +169,6 @@ func getBoostValue(token string, startIndex int, valence float64, isCapDiff bool
 	}
 
 	return boost
-}
-
-func (sia *SentimentIntensityAnalyzer) leastCheck(valence float64, wordsAndEmoticons []string, wordIndex int) float64 {
-	// check for negation case using "least"
-	if wordIndex > 1 {
-		if wordsAndEmoticons[wordIndex-1] == "least" && (wordsAndEmoticons[wordIndex-2] != "at" && wordsAndEmoticons[wordIndex-2] != "very") {
-			return valence * N_SCALAR
-		}
-	} else if wordIndex > 0 {
-		if wordsAndEmoticons[wordIndex-1] == "least" {
-			return valence * N_SCALAR
-		}
-	}
-
-	return valence
 }
 
 func butCheck(wordsAndEmoticons []string, sentiments []float64) []float64 {
@@ -249,6 +231,10 @@ func (sia *SentimentIntensityAnalyzer) specialIdiomsCheck(valence float64, words
 		}
 	}
 
+	if valence != 0 {
+		valence = sia.negationCheck(valence, wordsAndEmoticons, specialCaseIdiomStartIndex)
+	}
+
 	return valence
 }
 
@@ -260,32 +246,33 @@ func (sia *SentimentIntensityAnalyzer) sentimentLadenIdiomsCheck(valence float64
 }
 
 //check for negations
-func (sia *SentimentIntensityAnalyzer) negationCheck(valence float64, wordsAndEmoticons []string, startIndex int, i int) float64 {
+func (sia *SentimentIntensityAnalyzer) negationCheck(valence float64, wordsAndEmoticons []string, tokenIndex int) float64 {
 	if len(wordsAndEmoticons) == 0 {
 		return valence
 	}
 
-	switch startIndex {
-	case 0:
-		if ContainsNegation([]string{wordsAndEmoticons[i-(startIndex+1)]}) { // 1 word preceding lexicon word (w/o stopwords)
+	//check previous words for negations
+	switch i := tokenIndex; {
+	case i > 2:
+		if wordsAndEmoticons[tokenIndex-3] == "never" &&
+			((wordsAndEmoticons[tokenIndex-2] == "so" || wordsAndEmoticons[tokenIndex-2] == "this") ||
+				(wordsAndEmoticons[tokenIndex-1] == "so" || wordsAndEmoticons[tokenIndex-1] == "this")) {
+			return valence * 1.25
+		} else if wordsAndEmoticons[tokenIndex-3] == "without" && (wordsAndEmoticons[tokenIndex-2] == "doubt" || wordsAndEmoticons[tokenIndex-1] == "doubt") {
+			return valence
+		} else if ContainsNegation(wordsAndEmoticons[tokenIndex-3 : tokenIndex]) { //3 words preceding the lexicon word position
 			return valence * N_SCALAR
 		}
-	case 1:
-		if wordsAndEmoticons[i-2] == "never" && (wordsAndEmoticons[i-1] == "so" || wordsAndEmoticons[i-1] == "this") {
+	case i > 1:
+		if wordsAndEmoticons[tokenIndex-2] == "never" && (wordsAndEmoticons[tokenIndex-1] == "so" || wordsAndEmoticons[tokenIndex-1] == "this") {
 			return valence * 1.25
-		} else if wordsAndEmoticons[i-2] == "without" && wordsAndEmoticons[i-1] == "doubt" {
+		} else if wordsAndEmoticons[tokenIndex-2] == "without" && wordsAndEmoticons[tokenIndex-1] == "doubt" {
 			return valence
-		} else if ContainsNegation([]string{wordsAndEmoticons[i-(startIndex+1)]}) { // 2 words preceding the lexicon word position
+		} else if ContainsNegation(wordsAndEmoticons[tokenIndex-2 : tokenIndex]) { // 2 words preceding the lexicon word position
 			return valence * N_SCALAR
 		}
-	case 2:
-		if wordsAndEmoticons[i-3] == "never" &&
-			((wordsAndEmoticons[i-2] == "so" || wordsAndEmoticons[i-2] == "this") ||
-				(wordsAndEmoticons[i-1] == "so" || wordsAndEmoticons[i-1] == "this")) {
-			return valence * 1.25
-		} else if wordsAndEmoticons[i-3] == "without" && (wordsAndEmoticons[i-2] == "doubt" || wordsAndEmoticons[i-1] == "doubt") {
-			return valence
-		} else if ContainsNegation([]string{wordsAndEmoticons[i-(startIndex+1)]}) { //3 words preceding the lexicon word position
+	case i > 0:
+		if ContainsNegation(wordsAndEmoticons[tokenIndex-1 : tokenIndex]) { // 1 word preceding lexicon word (w/o stopwords)
 			return valence * N_SCALAR
 		}
 	}
